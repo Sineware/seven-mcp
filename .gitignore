@@ -2,3 +2,17 @@
 /out
 *.heic
 *.HEIC
+
+# macos
+.DS_Store
+._*
+
+# windows, as in files copied from the test machine
+Thumbs.db
+desktop.ini
+
+# editors
+.vscode/
+.idea/
+*.swp
+*~
