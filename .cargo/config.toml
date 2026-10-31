@@ -1,0 +1,3 @@
+[target.'cfg(target_family = "rust9x")']
+# getrandom 0.4 (from rmcp) imports ProcessPrng, which is windows 10 only
+rustflags = ["-Zunicows=no", "-Ctarget-feature=+crt-static", "--cfg", "getrandom_backend=\"windows_legacy\""]

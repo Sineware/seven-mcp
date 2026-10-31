@@ -1,0 +1,11 @@
+target
+out
+.git
+**/.DS_Store
+**/._*
+**/Thumbs.db
+**/desktop.ini
+**/*.heic
+**/*.HEIC
+.vscode
+.idea

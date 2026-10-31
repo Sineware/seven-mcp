@@ -1,0 +1,96 @@
+#include <windows.h>
+#include <commctrl.h>
+
+1 RT_MANIFEST "sevenmcp.manifest"
+1 ICON "sevenmcp.ico"
+
+1 MENU
+BEGIN
+    POPUP ""
+    BEGIN
+        MENUITEM "&Open", 10
+        MENUITEM "&About Seven MCP", 12
+        MENUITEM SEPARATOR
+        MENUITEM "E&xit", 11
+    END
+END
+
+1 DIALOGEX 0, 0, 360, 360
+STYLE DS_SHELLFONT | DS_CENTER | WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX
+CAPTION "Seven MCP"
+FONT 9, "Segoe UI", 400, 0, 1
+BEGIN
+    GROUPBOX "Server", -1, 7, 7, 346, 72
+    LTEXT "", 100, 16, 20, 328, 8, SS_NOPREFIX
+    LTEXT "", 101, 16, 34, 220, 16
+    PUSHBUTTON "Restart as administrator", 102, 244, 33, 100, 14
+    LTEXT "&Port:", -1, 16, 59, 20, 8
+    EDITTEXT 103, 40, 57, 36, 14, ES_NUMBER
+    PUSHBUTTON "&Apply", 104, 80, 57, 50, 14, WS_DISABLED
+
+    GROUPBOX "Paired apps", -1, 7, 85, 346, 82
+    LTEXT "", 105, 16, 98, 328, 8, SS_NOPREFIX
+    CONTROL "", 106, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_NOSORTHEADER | WS_BORDER | WS_TABSTOP, 16, 110, 274, 50
+    PUSHBUTTON "&Remove", 107, 294, 110, 50, 14, WS_DISABLED
+
+    GROUPBOX "Log", -1, 7, 173, 346, 160
+    CONTROL "", 108, "SysListView32", LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_NOSORTHEADER | WS_BORDER | WS_TABSTOP, 16, 186, 328, 56
+    EDITTEXT 109, 16, 246, 328, 80, ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | ES_AUTOHSCROLL | WS_VSCROLL | WS_HSCROLL
+
+    PUSHBUTTON "A&bout", 12, 7, 339, 50, 14
+    PUSHBUTTON "uwu?", 13, 61, 339, 50, 14
+    CONTROL "", 14, "Static", SS_BITMAP, 360, 0, 0, 0
+    PUSHBUTTON "Close", IDCANCEL, 303, 339, 50, 14
+END
+
+2 DIALOGEX 0, 0, 250, 158
+STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "About Seven MCP"
+FONT 9, "Segoe UI", 400, 0, 1
+BEGIN
+    CONTROL "", 201, "Static", SS_BITMAP, 0, 0, 250, 56
+    CONTROL "", -1, "Static", SS_ETCHEDHORZ, 0, 56, 250, 1
+    LTEXT "An MCP server for Windows 7.", -1, 12, 66, 226, 8, SS_NOPREFIX
+    LTEXT "", 200, 12, 80, 226, 50, SS_NOPREFIX
+    DEFPUSHBUTTON "OK", IDOK, 188, 136, 50, 14
+END
+
+// the dialog tool. ui::ask sets the text, sizes, and buttons
+3 DIALOGEX 0, 0, 250, 60
+STYLE DS_SHELLFONT | DS_MODALFRAME | DS_SETFOREGROUND | WS_POPUP | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_TOPMOST
+FONT 9, "Segoe UI", 400, 0, 1
+BEGIN
+    CONTROL "", 300, "Static", SS_ICON, 7, 7, 0, 0
+    LTEXT "", 301, 36, 7, 207, 20, SS_NOPREFIX
+    EDITTEXT 302, 36, 0, 207, 14, ES_AUTOHSCROLL
+    DEFPUSHBUTTON "", 310, 0, 0, 50, 14
+    PUSHBUTTON "", 311, 0, 0, 50, 14
+    PUSHBUTTON "", 312, 0, 0, 50, 14
+END
+
+1 VERSIONINFO
+FILEVERSION VERSION_BIN
+PRODUCTVERSION VERSION_BIN
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName", "Sineware"
+            VALUE "FileDescription", "Seven MCP"
+            VALUE "LegalCopyright", L"\xA9 2026 Sineware"
+            VALUE "FileVersion", VERSION
+            VALUE "InternalName", "SevenMCP"
+            VALUE "OriginalFilename", "SevenMCP.exe"
+            VALUE "ProductName", "Seven MCP"
+            VALUE "ProductVersion", VERSION
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

@@ -1,0 +1,60 @@
+# builds SevenMCP-x64.exe and SevenMCP-x86.exe on each push to main.
+# release-please reads the conventional commits and keeps a release pr that bumps Cargo.toml and CHANGELOG.md.
+# the push that merges that pr makes the release, and the build attaches the exes to it.
+# any other push replaces the "dev" prerelease with a build that shows <next patch>-dev.<commit>.
+name: Build
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# one run at a time, so a release build is never cancelled
+concurrency:
+  group: build
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      created: ${{ steps.release.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          release-type: rust
+
+  build:
+    needs: release
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # the same build as `docker build -o out .`, with the toolchain stage cached
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          outputs: type=local,dest=out
+          build-args: SEVENMCP_DEV=${{ needs.release.outputs.created != 'true' && github.sha || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Attach to the release
+        if: needs.release.outputs.created == 'true'
+        run: gh release upload "${{ needs.release.outputs.tag }}" out/SevenMCP-x64.exe out/SevenMCP-x86.exe --clobber
+
+      - name: Replace the dev prerelease
+        if: needs.release.outputs.created != 'true'
+        run: |
+          gh release delete dev --cleanup-tag --yes || true
+          gh release create dev out/SevenMCP-x64.exe out/SevenMCP-x86.exe \
+            --prerelease --target "$GITHUB_SHA" --title "Development build" \
+            --notes "Built from $GITHUB_SHA on main. It isn't a release, and it can change at any time."
