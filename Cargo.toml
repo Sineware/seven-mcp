@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 license = "GPL-3.0-or-later"
 description = "An MCP server for Windows 7"
+repository = "https://github.com/Sineware/seven-mcp"
 
 [dependencies]
 axum = { version = "0.8", default-features = false, features = ["form", "http1", "tokio"] }

@@ -42,6 +42,7 @@ const UWU: i32 = 13;
 const CHAN: i32 = 14;
 const ABOUT_TEXT: i32 = 200;
 const LOGO: i32 = 201;
+const LINK: i32 = 202;
 const ASK_ICON: i32 = 300;
 const ASK_TEXT: i32 = 301;
 const ASK_INPUT: i32 = 302;
@@ -151,7 +152,7 @@ pub fn run(port: u16, serve: impl FnOnce() + Send + 'static) {
         // explorer doesn't run as administrator, so uipi drops its broadcast to us when we do
         ChangeWindowMessageFilter(taskbar_created, MSGFLT_ADD);
         STATE.with_borrow_mut(|s| (s.port, s.taskbar_created) = (port, taskbar_created));
-        let icc = INITCOMMONCONTROLSEX { dwSize: size_of::<INITCOMMONCONTROLSEX>() as u32, dwICC: ICC_LISTVIEW_CLASSES };
+        let icc = INITCOMMONCONTROLSEX { dwSize: size_of::<INITCOMMONCONTROLSEX>() as u32, dwICC: ICC_LISTVIEW_CLASSES | ICC_LINK_CLASS };
         InitCommonControlsEx(&icc);
         let w = CreateDialogParamW(GetModuleHandleW(null()), 1 as _, null_mut(), Some(proc), 0);
         WINDOW.store(w, Ordering::Relaxed);
@@ -352,7 +353,7 @@ unsafe extern "system" fn proc(w: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> isi
     }
 }
 
-unsafe extern "system" fn about(w: HWND, msg: u32, wp: WPARAM, _: LPARAM) -> isize {
+unsafe extern "system" fn about(w: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> isize {
     unsafe {
         match msg {
             WM_INITDIALOG => {
@@ -365,6 +366,9 @@ unsafe extern "system" fn about(w: HWND, msg: u32, wp: WPARAM, _: LPARAM) -> isi
                     rmcp::model::Implementation::from_build_env().version
                 );
                 SetDlgItemTextW(w, ABOUT_TEXT, wide(&text).as_ptr());
+                let repo = env!("CARGO_PKG_REPOSITORY");
+                let link = format!("<a>{}</a>", repo.trim_start_matches("https://"));
+                SetDlgItemTextW(w, LINK, wide(&link).as_ptr());
                 // a white strip, with the logo in the middle
                 let mut r = zeroed();
                 GetClientRect(GetDlgItem(w, LOGO), &mut r);
@@ -374,6 +378,10 @@ unsafe extern "system" fn about(w: HWND, msg: u32, wp: WPARAM, _: LPARAM) -> isi
             WM_COMMAND if matches!((wp & 0xffff) as i32, IDOK | IDCANCEL) => {
                 set_picture(GetDlgItem(w, LOGO), null_mut());
                 EndDialog(w, 0);
+                1
+            }
+            WM_NOTIFY if (*(lp as *const NMHDR)).idFrom == LINK as usize && matches!((*(lp as *const NMHDR)).code, NM_CLICK | NM_RETURN) => {
+                ShellExecuteW(w, wide("open").as_ptr(), wide(env!("CARGO_PKG_REPOSITORY")).as_ptr(), null(), null(), SW_SHOWNORMAL);
                 1
             }
             _ => 0,

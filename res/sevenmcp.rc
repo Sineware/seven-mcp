@@ -43,7 +43,7 @@ BEGIN
     PUSHBUTTON "Close", IDCANCEL, 303, 339, 50, 14
 END
 
-2 DIALOGEX 0, 0, 250, 158
+2 DIALOGEX 0, 0, 250, 170
 STYLE DS_SHELLFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "About Seven MCP"
 FONT 9, "Segoe UI", 400, 0, 1
@@ -52,7 +52,8 @@ BEGIN
     CONTROL "", -1, "Static", SS_ETCHEDHORZ, 0, 56, 250, 1
     LTEXT "An MCP server for Windows 7.", -1, 12, 66, 226, 8, SS_NOPREFIX
     LTEXT "", 200, 12, 80, 226, 50, SS_NOPREFIX
-    DEFPUSHBUTTON "OK", IDOK, 188, 136, 50, 14
+    CONTROL "", 202, "SysLink", WS_TABSTOP, 12, 130, 226, 10
+    DEFPUSHBUTTON "OK", IDOK, 188, 148, 50, 14
 END
 
 // the dialog tool. ui::ask sets the text, sizes, and buttons

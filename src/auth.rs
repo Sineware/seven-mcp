@@ -54,12 +54,15 @@ fn escape(s: &str) -> String {
 }
 
 fn page(body: &str) -> Html<String> {
+    let repo = env!("CARGO_PKG_REPOSITORY");
     Html(format!(
         r#"<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>Seven MCP</title>
-<style>body{{font:15px "Segoe UI",Tahoma,sans-serif;max-width:40em;margin:2em auto;padding:0 1em}}h1{{margin:0}}h1 img{{width:24em;max-width:100%}}pre{{white-space:pre-wrap;word-break:break-all;background:#f0f0f0;padding:.6em}}</style>
+<style>body{{font:15px "Segoe UI",Tahoma,sans-serif;max-width:40em;margin:2em auto;padding:0 1em}}h1{{margin:0}}h1 img{{width:24em;max-width:100%}}pre{{white-space:pre-wrap;word-break:break-all;background:#f0f0f0;padding:.6em}}footer{{margin-top:2em;border-top:1px solid #ccc;padding-top:.6em;font-size:13px;color:#666}}</style>
 <h1><img src="/logo.png" alt="Seven MCP, by Sineware Labs"></h1>
-{body}"#
+{body}
+<footer><a href="{repo}">{}</a></footer>"#,
+        repo.trim_start_matches("https://")
     ))
 }
 
