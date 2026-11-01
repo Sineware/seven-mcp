@@ -120,7 +120,7 @@ pub struct Fetch {
 #[derive(Serialize, JsonSchema, Default)]
 pub struct JobResult {
     /// New output since the last call
-    #[serde(skip_serializing_if = "String::is_empty")]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub output: String,
     /// Bytes of earlier output that Seven MCP removed, because no app read them in time
     pub removed_bytes: Option<usize>,
