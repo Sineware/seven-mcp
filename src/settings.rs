@@ -32,10 +32,14 @@ pub fn get(name: &str) -> Option<String> {
 }
 
 pub fn set(name: &str, value: &str) {
-    let (path, name, value) = (wide(KEY), wide(name), wide(value));
+    write(HKEY_CURRENT_USER, KEY, name, value)
+}
+
+pub fn write(root: HKEY, path: &str, name: &str, value: &str) {
+    let (path, name, value) = (wide(path), wide(name), wide(value));
     let mut key = null_mut();
     unsafe {
-        RegCreateKeyExW(HKEY_CURRENT_USER, path.as_ptr(), 0, null(), 0, KEY_WRITE, null(), &mut key, null_mut());
+        RegCreateKeyExW(root, path.as_ptr(), 0, null(), 0, KEY_WRITE, null(), &mut key, null_mut());
         RegSetValueExW(key, name.as_ptr(), 0, REG_SZ, value.as_ptr().cast(), (value.len() * 2) as u32);
         RegCloseKey(key);
     }

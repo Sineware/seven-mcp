@@ -5,10 +5,17 @@ mod auth;
 mod http;
 mod mcp;
 mod settings;
+mod setup;
 mod tools;
 mod ui;
 
 fn main() {
+    // the installer and programs and features start these, not the user
+    match std::env::args().nth(1).as_deref() {
+        Some("/install") => return setup::install(),
+        Some("/uninstall") => return setup::uninstall(),
+        _ => {}
+    }
     let port = settings::get("Port").and_then(|p| p.parse().ok()).unwrap_or(7777);
     let Some(listener) = http::listen(port) else {
         return ui::error(&format!("Seven MCP can't use port {port} because it is already in use."));

@@ -1,7 +1,7 @@
 // the tray applet icon and the window
 
 use crate::mcp::Icon;
-use crate::{auth, settings, wide};
+use crate::{auth, settings, setup, wide};
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::mem::{size_of, zeroed};
@@ -40,6 +40,7 @@ const EXIT: i32 = 11;
 const ABOUT: i32 = 12;
 const UWU: i32 = 13;
 const CHAN: i32 = 14;
+const SETUP: i32 = 15;
 const ABOUT_TEXT: i32 = 200;
 const LOGO: i32 = 201;
 const LINK: i32 = 202;
@@ -47,6 +48,10 @@ const ASK_ICON: i32 = 300;
 const ASK_TEXT: i32 = 301;
 const ASK_INPUT: i32 = 302;
 const ASK_BUTTON: i32 = 310;
+const INSTALLED: i32 = 400;
+const LATEST: i32 = 401;
+const CHECK: i32 = 402;
+const UPDATE: i32 = 403;
 
 // rgba pngs from build.rs
 const LOGO_PNG: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/logo.png"));
@@ -60,6 +65,9 @@ const MAX_OUTPUT: usize = 65_536;
 
 const TRAY: u32 = WM_APP;
 const EVENT: u32 = WM_APP + 1;
+// the updates box gets these from its threads
+const CHECKED: u32 = WM_APP;
+const DOWNLOADED: u32 = WM_APP + 1;
 
 enum Event {
     Call(String, String),
@@ -67,6 +75,7 @@ enum Event {
     End(usize, String),
     Notify(String, String),
     Paired,
+    Update(String),
 }
 
 static WINDOW: AtomicPtr<core::ffi::c_void> = AtomicPtr::new(null_mut());
@@ -83,11 +92,14 @@ struct State {
     first: usize,
     apps: Vec<String>,
     hinted: bool,
+    // the release that the updates box found, and whether the last balloon was about an update
+    release: Option<setup::Release>,
+    update_balloon: bool,
 }
 
 thread_local! {
     static STATE: RefCell<State> =
-        const { RefCell::new(State { port: 0, taskbar_created: 0, calls: VecDeque::new(), first: 0, apps: Vec::new(), hinted: false }) };
+        const { RefCell::new(State { port: 0, taskbar_created: 0, calls: VecDeque::new(), first: 0, apps: Vec::new(), hinted: false, release: None, update_balloon: false }) };
 }
 
 // a box from the dialog tool. each one has its own thread
@@ -196,6 +208,18 @@ unsafe extern "system" fn proc(w: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> isi
                 SendDlgItemMessageW(w, OUTPUT, WM_SETFONT, font as usize, 0);
                 SendDlgItemMessageW(w, OUTPUT, EM_SETLIMITTEXT, 0, 0);
                 show_apps(w);
+                if setup::installed() {
+                    SetDlgItemTextW(w, SETUP, wide("Check for &Updates...").as_ptr());
+                    std::thread::spawn(|| {
+                        // the network can be down just after logon
+                        std::thread::sleep(std::time::Duration::from_secs(30));
+                        if let Some(r) = setup::latest().ok().filter(|r| r.newer()) {
+                            post(Event::Update(r.version().into()));
+                        }
+                    });
+                } else {
+                    SendDlgItemMessageW(w, SETUP, BCM_SETSHIELD, 0, 1);
+                }
                 if settings::get("Uwu").as_deref() == Some("1") {
                     uwu(w, true);
                 }
@@ -209,11 +233,18 @@ unsafe extern "system" fn proc(w: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> isi
                 IDCANCEL => {
                     ShowWindow(w, SW_HIDE);
                     if !STATE.with_borrow_mut(|s| std::mem::replace(&mut s.hinted, true)) {
+                        STATE.with_borrow_mut(|s| s.update_balloon = false);
                         tray(w, NIM_MODIFY, "Seven MCP is still open",
                             "AI apps can still control this computer. To open Seven MCP or to exit, click its icon.");
                     }
                 }
-                RESTART => restart(w, "runas"),
+                RESTART => restart(w, "runas", &std::env::current_exe().unwrap_or_default()),
+                SETUP if setup::installed() => _ = DialogBoxParamW(GetModuleHandleW(null()), 4 as _, w, Some(updates), 0),
+                SETUP => {
+                    if setup::elevate(w, &std::env::current_exe().unwrap_or_default(), "/install") {
+                        restart(w, "open", &setup::exe());
+                    }
+                }
                 UWU => {
                     let on = settings::get("Uwu").as_deref() != Some("1");
                     settings::set("Uwu", if on { "1" } else { "0" });
@@ -228,7 +259,7 @@ unsafe extern "system" fn proc(w: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> isi
                         error(&format!("Seven MCP can't use port {new}. Another program uses it."));
                     } else if new != port as u32 {
                         settings::set("Port", &new.to_string());
-                        restart(w, "open");
+                        restart(w, "open", &std::env::current_exe().unwrap_or_default());
                     }
                 }
                 PORT if (wp >> 16) as u32 == EN_CHANGE => {
@@ -260,6 +291,9 @@ unsafe extern "system" fn proc(w: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> isi
                 }
             }
             TRAY => match lp as u32 {
+                NIN_BALLOONUSERCLICK if STATE.with_borrow_mut(|s| std::mem::take(&mut s.update_balloon)) => {
+                    DialogBoxParamW(GetModuleHandleW(null()), 4 as _, w, Some(updates), 0);
+                }
                 WM_LBUTTONUP | NIN_BALLOONUSERCLICK => open(w),
                 WM_RBUTTONUP => {
                     let menu = LoadMenuW(GetModuleHandleW(null()), 1 as _);
@@ -341,8 +375,15 @@ unsafe extern "system" fn proc(w: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> isi
                                 cell(log, row, 3, &result);
                             }
                         }
-                        Event::Notify(title, text) => tray(w, NIM_MODIFY, &title, &text),
+                        Event::Notify(title, text) => {
+                            STATE.with_borrow_mut(|s| s.update_balloon = false);
+                            tray(w, NIM_MODIFY, &title, &text);
+                        }
                         Event::Paired => show_apps(w),
+                        Event::Update(version) => {
+                            STATE.with_borrow_mut(|s| s.update_balloon = true);
+                            tray(w, NIM_MODIFY, &format!("Seven MCP {version} is available"), "To install the update, click here.");
+                        }
                     }
                 }
             }
@@ -387,6 +428,81 @@ unsafe extern "system" fn about(w: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> is
             _ => 0,
         }
     }
+}
+
+unsafe extern "system" fn updates(w: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> isize {
+    unsafe {
+        let latest = |text: &str| _ = SetDlgItemTextW(w, LATEST, wide(text).as_ptr());
+        match msg {
+            WM_INITDIALOG => {
+                SetDlgItemTextW(w, INSTALLED, wide(env!("VERSION")).as_ptr());
+                SendDlgItemMessageW(w, UPDATE, BCM_SETSHIELD, 0, 1);
+                PostMessageW(w, WM_COMMAND, CHECK as usize, 0);
+                1
+            }
+            WM_COMMAND => {
+                match (wp & 0xffff) as i32 {
+                    CHECK => {
+                        latest("Checking...");
+                        EnableWindow(GetDlgItem(w, CHECK), 0);
+                        EnableWindow(GetDlgItem(w, UPDATE), 0);
+                        reply(w, CHECKED, setup::latest);
+                    }
+                    UPDATE => {
+                        if let Some(release) = STATE.with_borrow_mut(|s| s.release.take()) {
+                            latest(&format!("Downloading {}...", release.version()));
+                            EnableWindow(GetDlgItem(w, CHECK), 0);
+                            EnableWindow(GetDlgItem(w, UPDATE), 0);
+                            reply(w, DOWNLOADED, move || release.download());
+                        }
+                    }
+                    IDCANCEL => _ = EndDialog(w, 0),
+                    _ => {}
+                }
+                1
+            }
+            CHECKED => {
+                match *Box::from_raw(lp as *mut Result<setup::Release, String>) {
+                    Ok(release) => {
+                        let newer = release.newer();
+                        latest(&if newer { release.version().to_string() } else { format!("{} (Seven MCP is up to date.)", release.version()) });
+                        EnableWindow(GetDlgItem(w, UPDATE), newer as i32);
+                        if newer {
+                            // setfocus doesn't move the default button
+                            SendMessageW(w, WM_NEXTDLGCTL, GetDlgItem(w, UPDATE) as usize, 1);
+                        }
+                        STATE.with_borrow_mut(|s| s.release = Some(release));
+                    }
+                    Err(e) => latest(&format!("Seven MCP can't find the latest version: {e}")),
+                }
+                EnableWindow(GetDlgItem(w, CHECK), 1);
+                1
+            }
+            DOWNLOADED => {
+                match *Box::from_raw(lp as *mut Result<std::path::PathBuf, String>) {
+                    // the update installs itself as administrator, then we start it with our own rights
+                    Ok(path) if setup::elevate(w, &path, "/install") => restart(WINDOW.load(Ordering::Relaxed), "open", &setup::exe()),
+                    Ok(_) => latest("Seven MCP didn't install the update."),
+                    Err(e) => latest(&format!("Seven MCP can't download the update: {e}")),
+                }
+                EnableWindow(GetDlgItem(w, CHECK), 1);
+                1
+            }
+            _ => 0,
+        }
+    }
+}
+
+// runs f on a new thread, and posts its result to w as lparam
+fn reply<T: Send + 'static>(w: HWND, msg: u32, f: impl FnOnce() -> T + Send + 'static) {
+    let w = w as usize;
+    std::thread::spawn(move || {
+        let result = Box::into_raw(Box::new(f()));
+        // the box was closed
+        if unsafe { PostMessageW(w as HWND, msg, 0, result as isize) } == 0 {
+            drop(unsafe { Box::from_raw(result) });
+        }
+    });
 }
 
 // waits until the user clicks a button (its index) or closes the box (none), or until stopped() is true.
@@ -582,9 +698,9 @@ unsafe fn quit(w: HWND) {
     }
 }
 
-unsafe fn restart(w: HWND, verb: &str) {
+unsafe fn restart(w: HWND, verb: &str, exe: &std::path::Path) {
     unsafe {
-        let exe = wide(&std::env::current_exe().unwrap_or_default().to_string_lossy());
+        let exe = wide(&exe.to_string_lossy());
         if ShellExecuteW(w, wide(verb).as_ptr(), exe.as_ptr(), null(), null(), SW_SHOWNORMAL) as isize > 32 {
             quit(w);
         }

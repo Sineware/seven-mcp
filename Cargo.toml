@@ -12,6 +12,7 @@ base64 = "0.23"
 png = "0.18"
 ring = "0.17"
 rmcp = { version = "3.8", features = ["server", "macros", "transport-streamable-http-server"] }
+semver = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 tokio = { version = "1", features = ["rt-multi-thread", "net"] }
@@ -23,6 +24,7 @@ windows-sys = { version = "0.61", features = [
     "Win32_Graphics_Gdi",
     "Win32_Graphics_GdiPlus",
     "Win32_Security",
+    "Win32_Storage_FileSystem",
     "Win32_System_Diagnostics_Debug",
     "Win32_System_LibraryLoader",
     "Win32_System_Registry",
