@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/Sineware/seven-mcp/compare/v0.2.0...v0.3.0) (2026-11-05)
+
+
+### Features
+
+* download updates from github releases ([65c70f1](https://github.com/Sineware/seven-mcp/commit/65c70f1019b53fd7b873e6709a0eb8c968385840))
+
 ## [0.2.0](https://github.com/Sineware/seven-mcp/compare/v0.1.0...v0.2.0) (2026-11-01)
 
 
